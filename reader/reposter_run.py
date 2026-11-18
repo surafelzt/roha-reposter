@@ -20,7 +20,10 @@ from core import (QuotaExhausted, add_watermark, addis_now, build_caption_html, 
                   group_messages, in_collect_window, is_duplicate, norm_channel, phash,
                   prune_hashes, scrub, search_clean_photos, to_jpeg)
 
-RUN_BUDGET_SECONDS = 25 * 60
+# One GitHub run keeps checking the sources for ~50 min, then the next scheduled run takes over.
+# shortcut: polling every POLL_SECONDS, not a live listener; fine for ~20 channels.
+RUN_BUDGET_SECONDS = 50 * 60
+POLL_SECONDS = 60
 REQUIRED_ENV = ["TG_API_ID", "TG_API_HASH", "TG_SESSION", "GEMINI_API_KEY",
                 "REPOSTER_BOT_TOKEN", "STORAGE_CHAT_ID", "WORKER_URL", "READER_KEY"]
 USERNAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]{3,31}")
@@ -171,6 +174,9 @@ class Run:
         self.hashes = prune_hashes(cfg.get("hashes"), cfg.get("duplicate_days", 30))
         self.stats = {"checked": 0, "queued": 0, "skipped": 0, "errors": 0}
         self.start = time.time()
+        self.stopped = False          # AI limit or Worker problem: end the whole run
+        self.entities = {}            # resolved sources, kept between passes
+        self.dialogs_cache = []
 
     def push_state(self):
         try:
@@ -271,13 +277,13 @@ class Run:
     async def collect(self):
         cfg = self.cfg
         total = 0
-        dialogs_cache = []
         for ch in cfg.get("sources", []):
             if total >= cfg.get("max_posts_per_run", 25) or self.out_of_time():
                 break
             key = norm_channel(ch)
             try:
-                entity = await resolve_source(self.client, ch, dialogs_cache)
+                entity = self.entities.get(key) or await resolve_source(self.client, ch, self.dialogs_cache)
+                self.entities[key] = entity
             except Exception as e:
                 log.warning("a source could not be opened (%s)", type(e).__name__)
                 self.stats["errors"] += 1
@@ -318,6 +324,7 @@ class Run:
                     log.warning("stopping run: %s", "AI limit reached" if isinstance(e, QuotaExhausted)
                                 else "worker problem")
                     self.stats["errors"] += 1
+                    self.stopped = True
                     self.push_state()      # this post is NOT marked done, so it is retried next run
                     return
                 except Exception as e:
@@ -371,10 +378,23 @@ async def main():
         ai = core.Gemini(env["GEMINI_API_KEY"])
         run = Run(client, ai, worker, cfg, env)
         log.info("run started: %d sources", len(cfg.get("sources", [])))
-        try:
-            await run.collect()
-        finally:
-            run.push_state()
+        while True:
+            try:
+                await run.collect()
+            finally:
+                run.push_state()
+            if run.stopped or run.out_of_time():
+                break
+            await asyncio.sleep(POLL_SECONDS)
+            try:
+                cfg = worker.config()   # picks up panel changes (sources, stop) without a restart
+            except WorkerError:
+                continue
+            if not cfg.get("running", True) or not in_collect_window(
+                    addis_now()["minutes"], cfg.get("collect_start", "06:00"), cfg.get("collect_end", "22:00")):
+                log.info("stopping: paused or outside collect window")
+                break
+            run.cfg = cfg
         s = run.stats
         log.info("run done: checked %d, queued %d, skipped %d, errors %d",
                  s["checked"], s["queued"], s["skipped"], s["errors"])

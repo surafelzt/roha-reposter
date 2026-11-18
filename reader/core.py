@@ -388,7 +388,7 @@ class Gemini:
         gt = self._gtypes
         parts = [gt.Part.from_bytes(data=p, mime_type="image/jpeg") for p in photos[:4]]
         parts.append(ANALYZE_PROMPT.replace("<<<CAPTION>>>", caption or "(empty)"))
-        return parse_json(await self.ask(parts, search=True))
+        return parse_json(await self.ask(parts))
 
     async def pick_clean(self, original, candidates, name):
         gt = self._gtypes
