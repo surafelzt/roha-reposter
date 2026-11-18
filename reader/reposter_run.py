@@ -365,7 +365,7 @@ async def main():
     client = TelegramClient(StringSession(env["TG_SESSION"]), int(env["TG_API_ID"]), env["TG_API_HASH"])
     await client.connect()
     try:
-        if not await client.is_authorized():
+        if not await client.is_user_authorized():
             print("The Telegram session is not valid. Run login.py again and update TG_SESSION.")
             return 1
         ai = core.Gemini(env["GEMINI_API_KEY"])
