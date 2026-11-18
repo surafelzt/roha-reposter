@@ -1,0 +1,6 @@
+telethon>=1.36,<2
+google-genai>=1.0,<4
+ddgs>=9,<10
+pillow>=10,<13
+imagehash>=4.3,<5
+requests>=2.31,<3

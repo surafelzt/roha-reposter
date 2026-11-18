@@ -1,0 +1,28 @@
+name: keepalive
+
+# GitHub pauses scheduled workflows in repos with no commits for 60 days.
+# This monthly commit keeps the schedule running.
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Write today's date and commit it
+        run: |
+          date -u +%F > keepalive.txt
+          git config user.name "keepalive-bot"
+          git config user.email "keepalive-bot@users.noreply.github.com"
+          git add keepalive.txt
+          git diff --cached --quiet || git commit -m "keepalive $(date -u +%F)"
+          git push

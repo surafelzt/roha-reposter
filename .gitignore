@@ -1,0 +1,10 @@
+*.session
+*.session-journal
+config.json
+state.json
+.env
+__pycache__/
+# The Worker folder is deployed from the Codespace but never committed (it lists the source channels).
+worker/
+node_modules/
+.wrangler/
