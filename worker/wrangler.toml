@@ -1,0 +1,36 @@
+name = "roha-reposter"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# One cron only (Cloudflare free plan allows 5 per account).
+[triggers]
+crons = ["* * * * *"]
+
+# Database for the queue, settings and logs.
+[[d1_databases]]
+binding = "DB"
+database_name = "reposter-db"
+database_id = "457e9bc8-9d16-455a-a368-c70c5cd4a2a2"
+
+[vars]
+# Test channel first (@username for a public channel, or the numeric -100... id for a private one).
+# Change to the live channel only when the owner says "publish".
+CHANNEL_ID = "@rohatools"
+# Your Worker address, e.g. https://roha-reposter.<your-subdomain>.workers.dev
+PUBLIC_URL = "https://roha-reposter.makidazelalemt.workers.dev"
+FB_API_VERSION = "v26.0"
+
+# Secrets are NOT stored in this file. Set each one with:
+#   npx wrangler secret put <NAME>
+# and paste the value when asked. Names:
+#   REPOSTER_BOT_TOKEN
+#   OWNER_ID
+#   WEBHOOK_SECRET
+#   READER_KEY
+#   IMG_SIGN_KEY
+#   FB_PAGE_ID
+#   FB_PAGE_TOKEN
+#   ANSWER_BOT_TOKEN
+#   ANSWER_WEBHOOK_SECRET
+#   GEMINI_API_KEY
+#   PRICES_URL   (optional)
